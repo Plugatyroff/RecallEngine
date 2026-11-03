@@ -94,16 +94,25 @@ python scripts/import_anki.py C:\path\to\export.colpkg --media-only   # only ima
 
 Decks become topics, and the review history sets each card's schedule. Cloze cards, images and
 audio are supported. Importing the same file again updates the earlier import instead of
-duplicating it (and brings back decks deleted since). Decks can also be imported in the app,
-with the **+** on the main screen.
+duplicating it: cards already imported keep the topic they are in now, even if you renamed or
+moved it, and decks deleted since come back.
+
+There are two more ways to import:
+
+- **Inbox:** drop the file into `%USERPROFILE%\RecallEngine-data\inbox` while the backend runs.
+  It is imported within a few seconds and moved to `anki-exports`; a file that cannot be
+  imported moves to `inbox\failed` with a `.error.txt` explaining why.
+- **In the app:** the **+** on the main screen opens AnkiWeb and lets you choose a deck file.
 
 ## Your data
 
 User data lives outside the repository, in `%USERPROFILE%\RecallEngine-data`:
 
 ```text
-media\     card images and audio (MEDIA_DIR in backend/.env to change)
-backups\   daily database backups and a copy of the media (scripts/backup-database.ps1)
+media\          card images and audio (MEDIA_DIR in backend/.env to change)
+backups\        daily database backups and a copy of the media (scripts/backup-database.ps1)
+inbox\          drop Anki files here to import them automatically
+anki-exports\   Anki files imported from the inbox
 ```
 
 The app never sees these folders: it loads media from the backend at `/api/v1/media/<file name>`,

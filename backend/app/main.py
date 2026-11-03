@@ -3,6 +3,8 @@
 Run locally with:  uvicorn app.main:app --reload
 """
 
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -10,10 +12,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
+from app.core.database import SessionLocal
+from app.services import inbox
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-app = FastAPI(title="Recall Engine API")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Runs while the server runs: watches the inbox folder for Anki files to import."""
+    stop = inbox.start_watcher(SessionLocal)
+    yield
+    if stop is not None:
+        stop.set()
+
+
+app = FastAPI(title="Recall Engine API", lifespan=lifespan)
 
 # Allow the Expo web version (served from localhost:8081 during development) to call the API.
 # The phone app is not a browser, so it does not need this.

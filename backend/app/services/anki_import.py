@@ -32,7 +32,7 @@ import sqlite3
 import tempfile
 import zipfile
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -176,7 +176,7 @@ def import_anki(session: Session, path: Path, *, with_media: bool = True) -> Imp
         models = {key: m for key, m in json.loads(models_json).items() if int(m["id"]) in used}
 
         note_types = _import_note_types(session, models, report)
-        topics = _import_topics(session, decks, anki, report)
+        topics = _deck_topics(session, decks, report)
         notes = _import_notes(session, anki, note_types, models, report)
         _rename_references(notes.values(), renamed)
         cards = _import_cards(session, anki, notes, topics, report)
@@ -222,9 +222,13 @@ def _import_note_types(session: Session, models: dict[str, dict], report: Import
     return result
 
 
-def _import_topics(session: Session, decks: dict[str, dict], anki: sqlite3.Connection,
-                   report: ImportReport) -> dict[int, Topic]:
-    """Create a topic for every deck that has cards (and for its parents). Returns deck id → topic."""
+def _deck_topics(session: Session, decks: dict[str, dict], report: ImportReport) -> Callable[[int], Topic]:
+    """Returns a function giving the topic for an Anki deck, creating it (and its parents) when first needed.
+
+    Topics are found by their name path ("Maths::Algebra" → Maths → Algebra). They are only created
+    when a new card needs them, so re-importing a deck whose topics the user has renamed or moved
+    does not create a second copy of them.
+    """
     by_path: dict[tuple[str, ...], Topic] = {}
     all_topics = list(session.scalars(select(Topic)))
     by_id = {t.id: t for t in all_topics}
@@ -248,14 +252,12 @@ def _import_topics(session: Session, decks: dict[str, dict], anki: sqlite3.Conne
             report.topics_created += 1
         return by_path[path]
 
-    used = {row[0] for row in anki.execute("SELECT DISTINCT CASE WHEN odid != 0 THEN odid ELSE did END FROM cards")}
-    result = {}
-    for deck_id in used:
+    def topic_for_deck(deck_id: int) -> Topic:
         deck = decks.get(str(deck_id))
         name = deck["name"] if deck else "Anki import"
-        path = tuple(part.strip()[:200] or "(unnamed)" for part in name.split("::"))
-        result[deck_id] = topic_for(path)
-    return result
+        return topic_for(tuple(part.strip()[:200] or "(unnamed)" for part in name.split("::")))
+
+    return topic_for_deck
 
 
 def _import_notes(session: Session, anki: sqlite3.Connection, note_types: dict[int, NoteType],
@@ -295,7 +297,7 @@ def _import_notes(session: Session, anki: sqlite3.Connection, note_types: dict[i
 
 
 def _import_cards(session: Session, anki: sqlite3.Connection, notes: dict[int, Note],
-                  topics: dict[int, Topic], report: ImportReport) -> dict[int, Card]:
+                  topic_for_deck: Callable[[int], Topic], report: ImportReport) -> dict[int, Card]:
     existing = {c.anki_id: c for c in session.scalars(
         select(Card).where(Card.anki_id.is_not(None)).options(selectinload(Card.review_state), selectinload(Card.reviews))
     )}
@@ -307,13 +309,15 @@ def _import_cards(session: Session, anki: sqlite3.Connection, notes: dict[int, N
         if card is None:
             card = Card(anki_id=card_id, created_at=_from_ms(card_id))
             card.review_state = ReviewState(scheduler=DEFAULT_SCHEDULER)
+            # A new card goes into its deck's topic (a card in a filtered deck: its original deck)
+            card.topic = topic_for_deck(original_deck_id or deck_id)
             session.add(card)
             report.cards_created += 1
         else:
+            # An existing card stays where it is: the user may have renamed or moved its topic
             report.cards_updated += 1
         card.note = notes[note_id]
         card.template_ord = ord_
-        card.topic = topics[original_deck_id or deck_id]  # cards in a filtered deck belong to their original deck
         card.updated_at = datetime.fromtimestamp(modified, UTC)
         result[card_id] = card
     return result

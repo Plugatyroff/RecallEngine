@@ -179,6 +179,24 @@ def test_importing_again_updates_instead_of_duplicating(session: Session, tmp_pa
     assert json.loads(alma.fields) == ["alma", "apple (fruit)"]
 
 
+def test_reimport_keeps_cards_in_topics_the_user_renamed_or_moved(session: Session, tmp_path: Path) -> None:
+    import_anki(session, build_export(tmp_path))
+    vocab = session.scalar(select(Topic).where(Topic.name == "Vocabulary"))
+    vocab.parent.name = "Magyar"  # the user renames "Hungarian"
+    maths_card = session.scalar(select(Card).where(Card.anki_id == T0 + 11))
+    maths_card.topic = vocab  # ... and moves a card to another topic
+    session.flush()
+    topics_before = count(session, Topic)
+
+    report = import_anki(session, build_export(tmp_path))
+
+    assert report.topics_created == 0
+    assert count(session, Topic) == topics_before
+    assert session.scalar(select(Topic).where(Topic.name == "Hungarian")) is None
+    assert maths_card.topic is vocab
+    assert {c.topic.name for c in session.scalars(select(Card).where(Card.anki_id.in_([T0 + 12, T0 + 13])))} == {"Vocabulary"}
+
+
 def test_newer_compressed_format_is_rejected_with_advice(session: Session, tmp_path: Path) -> None:
     export = build_export(tmp_path, member="collection.anki21b")
 
