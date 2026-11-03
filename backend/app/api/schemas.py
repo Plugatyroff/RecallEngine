@@ -20,6 +20,12 @@ class TopicCreate(BaseModel):
     parent_id: int | None = None
 
 
+class TopicDeleted(BaseModel):
+    topics: int  # the topic and its subtopics
+    cards: int
+    notes: int
+
+
 class NoteTypeOut(BaseModel):
     id: int
     name: str

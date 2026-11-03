@@ -6,6 +6,12 @@ export type TopicWithTotals = Topic & {
   total_due: number;
 };
 
+/** How many topics are below this one, at any depth. */
+export function countDescendants(topics: Topic[], topicId: number): number {
+  const children = topics.filter((t) => t.parent_id === topicId);
+  return children.reduce((sum, child) => sum + 1 + countDescendants(topics, child.id), 0);
+}
+
 /** Add subtree totals to each topic. The API sends counts for each topic on its own. */
 export function withTotals(topics: Topic[]): TopicWithTotals[] {
   const children = new Map<number | null, Topic[]>();

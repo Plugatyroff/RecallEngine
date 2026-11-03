@@ -1,5 +1,6 @@
 """Tests for the HTTP endpoints, run against the test database."""
 
+import json
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_now, get_session
 from app.main import app
+from app.models import Card, NoteType, NoteTypeTemplate
 
 NOW = datetime(2026, 11, 4, 9, 0, tzinfo=UTC)
 
@@ -165,6 +167,47 @@ def test_queue_can_be_limited_to_a_topic_and_its_subtopics(client: TestClient) -
     assert queue(topic_id=words["id"]) == in_hungarian[1:]
     assert len(queue()) == 3
     assert client.get("/api/v1/review/queue", params={"topic_id": 999999}).status_code == 404
+
+
+def test_deleting_a_topic_removes_its_subtopics_cards_and_history(client: TestClient) -> None:
+    hungarian = create_topic(client, "Hungarian")
+    vocab = create_topic(client, "Vocabulary", hungarian["id"])
+    maths = create_topic(client, "Mathematics")
+    card_id = create_note(client, vocab["id"], ["alma", "apple"])["card_ids"][0]
+    create_note(client, hungarian["id"], ["szia", "hi"])
+    kept = create_note(client, maths["id"], ["1+1", "2"])["card_ids"][0]
+    client.post(f"/api/v1/cards/{card_id}/reviews", json={"grade": 3})
+
+    response = client.delete(f"/api/v1/topics/{hungarian['id']}")
+
+    assert response.json() == {"topics": 2, "cards": 2, "notes": 2}
+    assert {t["name"] for t in client.get("/api/v1/topics").json()} == {"Mathematics"}
+    assert client.get(f"/api/v1/cards/{card_id}").status_code == 404
+    assert client.get(f"/api/v1/cards/{kept}").status_code == 200
+    assert client.delete(f"/api/v1/topics/{hungarian['id']}").status_code == 404
+
+
+def test_deleting_a_topic_keeps_notes_with_cards_elsewhere(client: TestClient, session: Session) -> None:
+    """A reversed note can have its two cards in different topics; only the card in the topic goes."""
+    vocab, other = create_topic(client, "Vocabulary"), create_topic(client, "Other")
+    note = create_note(client, vocab["id"], ["alma", "apple"], note_type_id=_reversed_note_type(session))
+    session.get(Card, note["card_ids"][1]).topic_id = other["id"]
+    session.flush()
+
+    result = client.delete(f"/api/v1/topics/{vocab['id']}").json()
+
+    assert (result["cards"], result["notes"]) == (1, 0)
+    assert client.get(f"/api/v1/cards/{note['card_ids'][1]}").status_code == 200
+
+
+def _reversed_note_type(session: Session) -> int:
+    note_type = NoteType(name="Reversed (test)", fields=json.dumps(["Front", "Back"]), templates=[
+        NoteTypeTemplate(ord=0, name="Card 1", front_template="{{Front}}", back_template="{{Back}}"),
+        NoteTypeTemplate(ord=1, name="Card 2", front_template="{{Back}}", back_template="{{Front}}"),
+    ])
+    session.add(note_type)
+    session.flush()
+    return note_type.id
 
 
 def test_reviewing_requires_a_valid_grade_and_card(client: TestClient) -> None:

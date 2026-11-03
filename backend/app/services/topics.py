@@ -1,12 +1,12 @@
-"""Reading and creating topics."""
+"""Reading, creating and deleting topics."""
 
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete, exists, func, select, update
 from sqlalchemy.orm import Session
 
-from app.models import Card, ReviewState, Topic
+from app.models import Card, Note, ReviewState, Topic
 from app.services.errors import InvalidInputError, NotFoundError
 
 
@@ -68,3 +68,37 @@ def create_topic(session: Session, name: str, parent_id: int | None) -> Topic:
     session.add(topic)
     session.flush()
     return topic
+
+
+@dataclass(frozen=True)
+class DeletedTopic:
+    topics: int
+    cards: int
+    notes: int
+
+
+def delete_topic(session: Session, topic_id: int) -> DeletedTopic:
+    """Delete a topic with all its subtopics and their cards, including the cards' review history.
+
+    A note is deleted when all of its cards were in the deleted topics. A note with a sibling card
+    in another topic is kept, together with that card.
+    """
+    topic_ids = subtree_ids(session, topic_id)
+    in_subtree = Card.topic_id.in_(topic_ids)
+    # Notes whose cards are all in the subtree
+    only_here = Note.id.in_(select(Card.note_id).where(in_subtree)) & ~exists(
+        select(Card.id).where(Card.note_id == Note.id, ~in_subtree)
+    )
+    card_count = session.scalar(select(func.count()).select_from(Card).where(in_subtree))
+    note_count = session.scalar(select(func.count()).select_from(Note).where(only_here))
+
+    # The database deletes each card's review state and reviews along with the card (ON DELETE
+    # CASCADE), and each note's cards and tag links along with the note.
+    session.execute(delete(Note).where(only_here), execution_options={"synchronize_session": False})
+    session.execute(delete(Card).where(in_subtree), execution_options={"synchronize_session": False})
+    # Topics refer to their parents, so detach them before deleting the whole subtree at once
+    session.execute(update(Topic).where(Topic.id.in_(topic_ids)).values(parent_id=None),
+                    execution_options={"synchronize_session": False})
+    session.execute(delete(Topic).where(Topic.id.in_(topic_ids)), execution_options={"synchronize_session": False})
+    session.expire_all()
+    return DeletedTopic(topics=len(topic_ids), cards=card_count, notes=note_count)

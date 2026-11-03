@@ -1,14 +1,15 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { TopicList } from '@/components/topic-list';
 import { Button, ErrorMessage, Label, Loading, Row, Screen, SectionTitle } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
+import { confirm } from '@/lib/confirm';
 import { formatInterval } from '@/lib/format';
-import { withTotals } from '@/lib/topics';
-import { api } from '@/services/api';
+import { countDescendants, withTotals, type TopicWithTotals } from '@/lib/topics';
+import { api, ApiError } from '@/services/api';
 
 /** One topic: its subtopics and its cards. */
 export default function TopicScreen() {
@@ -16,6 +17,33 @@ export default function TopicScreen() {
   const topicId = Number(id);
   const load = useCallback(() => Promise.all([api.topics(), api.cardsInTopic(topicId)]), [topicId]);
   const { data, error, loading, reload } = useApi(load);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteTopic = async (topic: TopicWithTotals, subtopics: number) => {
+    const contents = [
+      subtopics ? `${subtopics} subtopic${subtopics === 1 ? '' : 's'}` : null,
+      `${topic.total_cards} card${topic.total_cards === 1 ? '' : 's'}`,
+    ]
+      .filter(Boolean)
+      .join(' and ');
+    const confirmed = await confirm(
+      `Delete "${topic.name}"?`,
+      `This deletes ${contents}, including their review history. It can't be undone.`,
+      'Delete',
+    );
+    if (!confirmed) return;
+    try {
+      await api.deleteTopic(topic.id);
+      // Return to where the user came from; if this screen was opened directly, go to the main menu
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    } catch (e) {
+      setDeleteError(e instanceof ApiError ? e.message : String(e));
+    }
+  };
 
   if (loading) return <Loading />;
   if (error && !data) return <ErrorMessage message={error} onRetry={reload} />;
@@ -65,6 +93,12 @@ export default function TopicScreen() {
             onPress={() => router.push({ pathname: '/add-card', params: { topicId: String(topicId) } })}
           />
         </View>
+        {topic ? (
+          <View style={{ flexDirection: 'row', marginTop: Spacing.four }}>
+            <Button danger title="Delete topic" onPress={() => deleteTopic(topic, countDescendants(topicList, topicId))} />
+          </View>
+        ) : null}
+        {deleteError ? <Label muted>{deleteError}</Label> : null}
       </ScrollView>
     </Screen>
   );

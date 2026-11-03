@@ -38,6 +38,16 @@ def create_topic(body: schemas.TopicCreate, session: SessionDep):
     return schemas.TopicOut(id=topic.id, parent_id=topic.parent_id, name=topic.name, card_count=0, due_count=0)
 
 
+@router.delete("/topics/{topic_id}", response_model=schemas.TopicDeleted)
+def delete_topic(topic_id: int, session: SessionDep):
+    """Delete a topic with all its subtopics, their cards and the cards' review history."""
+    try:
+        deleted = topics.delete_topic(session, topic_id)
+    except NotFoundError as error:
+        raise _http_error(error)
+    return schemas.TopicDeleted(topics=deleted.topics, cards=deleted.cards, notes=deleted.notes)
+
+
 @router.get("/topics/{topic_id}/cards", response_model=list[schemas.CardSummary])
 def list_cards(topic_id: int, session: SessionDep):
     try:

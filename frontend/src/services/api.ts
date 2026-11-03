@@ -104,6 +104,9 @@ export const api = {
   topics: () => request<Topic[]>('/api/v1/topics'),
   createTopic: (name: string, parentId: number | null) =>
     post<Topic>('/api/v1/topics', { name, parent_id: parentId }),
+  /** Delete a topic with all its subtopics and cards. */
+  deleteTopic: (topicId: number) =>
+    request<{ topics: number; cards: number; notes: number }>(`/api/v1/topics/${topicId}`, { method: 'DELETE' }),
   cardsInTopic: (topicId: number) => request<CardSummary[]>(`/api/v1/topics/${topicId}/cards`),
   createNote: (topicId: number, fields: string[]) =>
     post<{ id: number; card_ids: number[] }>('/api/v1/notes', { topic_id: topicId, fields }),

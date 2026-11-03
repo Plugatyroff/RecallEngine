@@ -64,18 +64,21 @@ export function Button({
   title,
   onPress,
   primary,
+  danger,
   disabled,
   subtitle,
 }: {
   title: string;
   onPress: () => void;
   primary?: boolean;
+  /** For destructive actions such as deleting: red text */
+  danger?: boolean;
   disabled?: boolean;
   subtitle?: string;
 }) {
   const colors = useTheme();
   const background = primary ? '#208AEF' : colors.backgroundElement;
-  const foreground = primary ? '#ffffff' : colors.text;
+  const foreground = primary ? '#ffffff' : danger ? '#D93025' : colors.text;
   return (
     <Pressable
       onPress={onPress}
