@@ -40,6 +40,21 @@ def list_topics(session: Session, now: datetime) -> list[TopicSummary]:
     ]
 
 
+def subtree_ids(session: Session, topic_id: int) -> list[int]:
+    """The topic and all topics below it, at any depth."""
+    if session.get(Topic, topic_id) is None:
+        raise NotFoundError(f"Topic {topic_id} not found")
+    children: dict[int | None, list[int]] = {}
+    for id_, parent_id in session.execute(select(Topic.id, Topic.parent_id)):
+        children.setdefault(parent_id, []).append(id_)
+    result, pending = [], [topic_id]
+    while pending:
+        current = pending.pop()
+        result.append(current)
+        pending.extend(children.get(current, []))
+    return result
+
+
 def create_topic(session: Session, name: str, parent_id: int | None) -> Topic:
     name = name.strip()
     if not name:

@@ -1,11 +1,12 @@
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CardHtml } from '@/components/card-html';
 import { Button, ErrorMessage, Label, Loading, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
+import { useTheme } from '@/hooks/use-theme';
 import { formatInterval } from '@/lib/format';
 import { api, ApiError, type Grade } from '@/services/api';
 
@@ -19,9 +20,52 @@ const GRADES: { grade: Grade; label: string }[] = [
 /** Milliseconds since some fixed point; only called from effects and event handlers, never while rendering. */
 const clock = () => Date.now();
 
+/** A grade button on a single line, e.g. "Good 16d"; the text shrinks rather than wraps on narrow phones. */
+function GradeButton({
+  label,
+  interval,
+  primary,
+  onPress,
+}: {
+  label: string;
+  interval: string;
+  primary: boolean;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  const foreground = primary ? '#ffffff' : colors.text;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.gradeButton,
+        { backgroundColor: primary ? '#208AEF' : colors.backgroundElement, opacity: pressed ? 0.7 : 1 },
+      ]}>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ color: foreground, fontSize: 15 }}>
+        <Text style={{ fontWeight: '600' }}>{label}</Text>
+        <Text style={{ fontSize: 13, opacity: 0.75 }}> {interval}</Text>
+      </Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  gradeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.one,
+    borderRadius: 10,
+  },
+});
+
 /** Show each card's front, reveal the back, grade it, move on. */
 export default function ReviewScreen() {
-  const { data, error, loading, reload } = useApi(api.reviewQueue);
+  // Optional: review only this topic and its subtopics
+  const { topicId } = useLocalSearchParams<{ topicId?: string }>();
+  const load = useCallback(() => api.reviewQueue(topicId ? Number(topicId) : undefined), [topicId]);
+  const { data, error, loading, reload } = useApi(load);
   const [position, setPosition] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
@@ -83,10 +127,10 @@ export default function ReviewScreen() {
       {revealed ? (
         <View style={{ flexDirection: 'row', gap: Spacing.two }}>
           {GRADES.map(({ grade: value, label }) => (
-            <Button
+            <GradeButton
               key={value}
-              title={label}
-              subtitle={formatInterval(now, card.next_due_by_grade[value])}
+              label={label}
+              interval={formatInterval(now, card.next_due_by_grade[value])}
               primary={value === 3}
               onPress={() => grade(value)}
             />

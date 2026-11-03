@@ -29,6 +29,16 @@ export default function TopicScreen() {
     <Screen>
       <Stack.Screen options={{ title: topic?.name ?? '' }} />
       <ScrollView contentContainerStyle={{ gap: Spacing.two }}>
+        {topic && topic.total_cards > 0 ? (
+          <View style={{ flexDirection: 'row' }}>
+            <Button
+              primary
+              title={topic.total_due ? `Review ${topic.total_due} due` : 'Review'}
+              subtitle={topic.total_due ? 'this topic and its subtopics' : 'Nothing due — learn new cards'}
+              onPress={() => router.push({ pathname: '/review', params: { topicId: String(topicId) } })}
+            />
+          </View>
+        ) : null}
         <TopicList topics={topics} parentId={topicId} onChanged={reload} />
 
         <SectionTitle>Cards</SectionTitle>
@@ -46,6 +56,7 @@ export default function TopicScreen() {
                     ? `in ${formatInterval(now, card.due_at)}`
                     : undefined
             }
+            onPress={() => router.push({ pathname: '/card/[id]', params: { id: String(card.id) } })}
           />
         ))}
         <View style={{ flexDirection: 'row', marginTop: Spacing.two }}>

@@ -50,6 +50,20 @@ class CardSummary(BaseModel):
     due_at: datetime | None
 
 
+class CardDetail(BaseModel):
+    id: int
+    note_id: int
+    topic_id: int
+    topic_name: str
+    status: str
+    due_at: datetime | None
+    last_reviewed_at: datetime | None
+    review_count: int
+    lapse_count: int
+    front_html: str
+    back_html: str
+
+
 class CardToReview(BaseModel):
     id: int
     topic_id: int

@@ -135,6 +135,37 @@ def test_queue_puts_due_cards_before_new_ones_and_limits_new_cards(client: TestC
     assert len(queue) == 3
 
 
+def test_a_card_can_be_opened(client: TestClient) -> None:
+    topic = create_topic(client, "Hungarian")
+    card_id = create_note(client, topic["id"], ["alma", "apple"])["card_ids"][0]
+
+    card = client.get(f"/api/v1/cards/{card_id}").json()
+
+    assert (card["front_html"], card["topic_name"], card["status"]) == ("alma", "Hungarian", "new")
+    assert "apple" in card["back_html"]
+    assert client.get("/api/v1/cards/999999").status_code == 404
+
+
+def test_queue_can_be_limited_to_a_topic_and_its_subtopics(client: TestClient) -> None:
+    hungarian = create_topic(client, "Hungarian")
+    vocab = create_topic(client, "Vocabulary", hungarian["id"])
+    words = create_topic(client, "Food", vocab["id"])
+    maths = create_topic(client, "Mathematics")
+    in_hungarian = [
+        create_note(client, hungarian["id"], ["a", "b"])["card_ids"][0],
+        create_note(client, words["id"], ["alma", "apple"])["card_ids"][0],
+    ]
+    create_note(client, maths["id"], ["1+1", "2"])
+
+    def queue(**params) -> list[int]:
+        return [c["id"] for c in client.get("/api/v1/review/queue", params=params).json()["cards"]]
+
+    assert queue(topic_id=hungarian["id"]) == in_hungarian
+    assert queue(topic_id=words["id"]) == in_hungarian[1:]
+    assert len(queue()) == 3
+    assert client.get("/api/v1/review/queue", params={"topic_id": 999999}).status_code == 404
+
+
 def test_reviewing_requires_a_valid_grade_and_card(client: TestClient) -> None:
     topic = create_topic(client, "Hungarian")
     card_id = create_note(client, topic["id"], ["alma", "apple"])["card_ids"][0]

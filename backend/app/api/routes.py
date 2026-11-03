@@ -72,16 +72,36 @@ def create_note(body: schemas.NoteCreate, session: SessionDep):
     return schemas.NoteCreated(id=note.id, card_ids=[c.id for c in note.cards])
 
 
+@router.get("/cards/{card_id}", response_model=schemas.CardDetail)
+def get_card(card_id: int, session: SessionDep):
+    try:
+        card = notes.get_card(session, card_id)
+    except NotFoundError as error:
+        raise _http_error(error)
+    rendered, state = notes.render_card(card), card.review_state
+    return schemas.CardDetail(
+        id=card.id, note_id=card.note_id, topic_id=card.topic_id, topic_name=card.topic.name,
+        status=state.status, due_at=state.due_at, last_reviewed_at=state.last_reviewed_at,
+        review_count=state.review_count, lapse_count=state.lapse_count,
+        front_html=rendered.front, back_html=rendered.back,
+    )
+
+
 @router.get("/review/queue", response_model=schemas.ReviewQueue)
 def review_queue(
     session: SessionDep,
     now: NowDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     new_limit: Annotated[int, Query(ge=0, le=200)] = 10,
+    topic_id: Annotated[int | None, Query(description="Only this topic and its subtopics")] = None,
 ):
     """Cards to review now: due cards first, then up to new_limit new cards."""
+    try:
+        topic_ids = topics.subtree_ids(session, topic_id) if topic_id is not None else None
+    except NotFoundError as error:
+        raise _http_error(error)
     cards = []
-    for card in queue.review_queue(session, now, limit=limit, new_limit=new_limit):
+    for card in queue.review_queue(session, now, limit=limit, new_limit=new_limit, topic_ids=topic_ids):
         rendered = notes.render_card(card)
         cards.append(schemas.CardToReview(
             id=card.id, topic_id=card.topic_id, topic_name=card.topic.name,

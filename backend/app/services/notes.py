@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import Card, Note, NoteType, ReviewState, Tag, Topic
 from app.services.errors import InvalidInputError, NotFoundError
+from app.services.queue import with_content
 from app.services.scheduling import DEFAULT_SCHEDULER
 from app.services.templates import front_is_empty, render, strip_html
 
@@ -93,17 +94,18 @@ def create_note(
     return note
 
 
+def get_card(session: Session, card_id: int) -> Card:
+    card = session.scalar(select(Card).where(Card.id == card_id).options(*with_content()))
+    if card is None:
+        raise NotFoundError(f"Card {card_id} not found")
+    return card
+
+
 def list_cards_in_topic(session: Session, topic_id: int) -> list[Card]:
     if session.get(Topic, topic_id) is None:
         raise NotFoundError(f"Topic {topic_id} not found")
     return list(session.scalars(
-        select(Card)
-        .where(Card.topic_id == topic_id)
-        .options(
-            selectinload(Card.review_state),
-            selectinload(Card.note).selectinload(Note.note_type).selectinload(NoteType.templates),
-        )
-        .order_by(Card.id)
+        select(Card).where(Card.topic_id == topic_id).options(*with_content()).order_by(Card.id)
     ))
 
 

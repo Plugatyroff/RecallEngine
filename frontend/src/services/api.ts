@@ -43,6 +43,20 @@ export type CardSummary = {
   due_at: string | null;
 };
 
+export type CardDetail = {
+  id: number;
+  note_id: number;
+  topic_id: number;
+  topic_name: string;
+  status: string;
+  due_at: string | null;
+  last_reviewed_at: string | null;
+  review_count: number;
+  lapse_count: number;
+  front_html: string;
+  back_html: string;
+};
+
 export type Grade = 1 | 2 | 3 | 4;
 
 export type CardToReview = {
@@ -92,7 +106,12 @@ export const api = {
   cardsInTopic: (topicId: number) => request<CardSummary[]>(`/api/v1/topics/${topicId}/cards`),
   createNote: (topicId: number, fields: string[]) =>
     post<{ id: number; card_ids: number[] }>('/api/v1/notes', { topic_id: topicId, fields }),
-  reviewQueue: () => request<{ cards: CardToReview[] }>('/api/v1/review/queue'),
+  card: (cardId: number) => request<CardDetail>(`/api/v1/cards/${cardId}`),
+  /** Cards to review now; with a topic, only that topic and its subtopics. */
+  reviewQueue: (topicId?: number) =>
+    request<{ cards: CardToReview[] }>(
+      topicId === undefined ? '/api/v1/review/queue' : `/api/v1/review/queue?topic_id=${topicId}`,
+    ),
   submitReview: (cardId: number, grade: Grade, durationMs: number) =>
     post<ReviewResult>(`/api/v1/cards/${cardId}/reviews`, { grade, duration_ms: durationMs }),
 };
