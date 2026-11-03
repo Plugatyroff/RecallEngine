@@ -1,5 +1,7 @@
 """Application settings, read from environment variables or the backend/.env file."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +14,8 @@ class Settings(BaseSettings):
     # Database used by the automated tests; it is wiped on every test run.
     test_db_name: str = "RecallEngine_test"
     db_driver: str = "ODBC Driver 18 for SQL Server"
+    # Folder for card media (images, audio). It is user data, so it lives outside the repository.
+    media_dir: Path = Path.home() / "RecallEngine-data" / "media"
 
 
 settings = Settings()

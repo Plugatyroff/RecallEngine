@@ -42,6 +42,8 @@ class AnkiImportResult(BaseModel):
     reviews_imported: int
     reviews_already_present: int
     reviews_skipped: int
+    media_imported: int
+    media_renamed: int
     warnings: list[str]
 
 

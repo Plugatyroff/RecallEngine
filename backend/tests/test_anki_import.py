@@ -12,9 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_session
+from app.core.config import settings
 from app.main import app
 from app.models import Card, Note, NoteType, Review, Tag, Topic
-from app.services.anki_import import AnkiFormatError, import_anki
+from app.services.anki_import import AnkiFormatError, import_anki, import_anki_media
 
 DAY_MS = 86_400_000
 T0 = 1_700_000_000_000  # Anki IDs are creation times in milliseconds
@@ -67,7 +68,16 @@ REVLOG = [
 ]
 
 
-def build_export(folder: Path, notes=NOTES, member: str = "collection.anki21") -> Path:
+@pytest.fixture(autouse=True)
+def media_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Imports write media into a temporary folder, never the real one."""
+    folder = tmp_path / "media"
+    monkeypatch.setattr(settings, "media_dir", folder)
+    return folder
+
+
+def build_export(folder: Path, notes=NOTES, member: str = "collection.anki21",
+                 media_files: dict[str, bytes] | None = None) -> Path:
     database = folder / "collection.db"
     database.unlink(missing_ok=True)
     anki = sqlite3.connect(database)
@@ -87,6 +97,11 @@ def build_export(folder: Path, notes=NOTES, member: str = "collection.anki21") -
     export = folder / "export.colpkg"
     with zipfile.ZipFile(export, "w") as archive:
         archive.write(database, member)
+        if media_files:
+            # Like Anki: files stored as "0", "1", ... and a "media" map to their real names
+            archive.writestr("media", json.dumps({str(i): name for i, name in enumerate(media_files)}))
+            for i, content in enumerate(media_files.values()):
+                archive.writestr(str(i), content)
     return export
 
 
@@ -169,6 +184,44 @@ def test_newer_compressed_format_is_rejected_with_advice(session: Session, tmp_p
 
     with pytest.raises(AnkiFormatError, match="Support older Anki versions"):
         import_anki(session, export)
+
+
+def test_media_files_are_imported(session: Session, tmp_path: Path, media_dir: Path) -> None:
+    export = build_export(tmp_path, media_files={"alma.jpg": b"apple picture", "alma.mp3": b"sound"})
+
+    report = import_anki(session, export)
+
+    assert (report.media_imported, report.media_renamed) == (2, 0)
+    assert (media_dir / "alma.jpg").read_bytes() == b"apple picture"
+
+
+def test_a_taken_media_name_is_renamed_in_the_imported_notes(session: Session, tmp_path: Path, media_dir: Path) -> None:
+    media_dir.mkdir()
+    (media_dir / "alma.jpg").write_bytes(b"a different deck's picture")
+    notes = [NOTES[0], (T0 + 2, "guid-alma", 1002, "", ['alma <img src="alma.jpg">', "[sound:alma.jpg]"]), NOTES[2]]
+
+    report = import_anki(session, build_export(tmp_path, notes=notes, media_files={"alma.jpg": b"apple picture"}))
+
+    assert report.media_renamed == 1
+    assert (media_dir / "alma (2).jpg").read_bytes() == b"apple picture"
+    assert (media_dir / "alma.jpg").read_bytes() == b"a different deck's picture"
+    alma = session.scalar(select(Note).where(Note.anki_guid == "guid-alma"))
+    assert json.loads(alma.fields) == ['alma <img src="alma (2).jpg">', "[sound:alma (2).jpg]"]
+
+
+def test_a_dry_run_writes_no_media(session: Session, tmp_path: Path, media_dir: Path) -> None:
+    report = import_anki(session, build_export(tmp_path, media_files={"alma.jpg": b"x"}), with_media=False)
+
+    assert report.media_imported == 0
+    assert not media_dir.exists()
+
+
+def test_media_only_import_touches_no_cards(session: Session, tmp_path: Path, media_dir: Path) -> None:
+    report = import_anki_media(build_export(tmp_path, media_files={"alma.jpg": b"x"}))
+
+    assert report.media_imported == 1
+    assert report.notes_created == 0
+    assert count(session, Note) == 0
 
 
 def test_a_deck_can_be_uploaded_through_the_api(session: Session, tmp_path: Path) -> None:

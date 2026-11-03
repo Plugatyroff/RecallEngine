@@ -82,6 +82,14 @@ def render(template: str, fields: dict[str, str], front_side: str = "", cloze: C
     return _TAG.sub(tag, template)
 
 
+_SOUND = re.compile(r"\[sound:([^\]]+)\]")
+
+
+def render_sounds(text: str) -> str:
+    """Turn Anki's [sound:file.mp3] notation into an audio player for that file."""
+    return _SOUND.sub(lambda m: f'<audio controls preload="none" src="{html.escape(m.group(1), quote=True)}"></audio>', text)
+
+
 def front_is_empty(rendered_front: str) -> bool:
     """Anki creates no card for a template whose front would be empty (e.g. an optional reverse)."""
     return _is_empty(rendered_front)

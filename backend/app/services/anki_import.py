@@ -3,7 +3,9 @@
 What is imported:
 - decks → topics (Anki's "Maths::Algebra" becomes the topic Maths → Algebra)
 - note types with their fields and card templates
-- notes (field values stay HTML; media references are kept, media files are not imported yet)
+- notes (field values stay HTML)
+- media files (images, audio) into the media folder; if a different file with the same name is
+  already there, the new one is saved under a numbered name and this import's notes are updated
 - cards, each in the topic of its deck
 - tags
 - the review history; each card's scheduling state is then rebuilt by replaying that history
@@ -15,7 +17,11 @@ and time. Everything happens in the caller's transaction, so an import either co
 changes nothing.
 
 Cloze note types are supported: their cards are numbered by gap and rendered by
-app.services.templates. Image Occlusion cards import, but need media support to be usable.
+app.services.templates.
+
+Media files are written to disk, which a database rollback cannot undo, so a dry run should
+pass with_media=False. import_anki_media() imports only the media of an export, e.g. for a
+collection imported before media support existed.
 
 Supported format: collections exported with "Support older Anki versions" (collection.anki21 or
 collection.anki2 inside the file). Newer exports store a compressed collection.anki21b instead.
@@ -36,6 +42,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Card, Note, NoteType, NoteTypeTemplate, Review, ReviewState, Tag, Topic
+from app.services import media
 from app.services.errors import InvalidInputError
 from app.services.reviews import store_memory
 from app.services.scheduling import DEFAULT_SCHEDULER, get_scheduler, replay
@@ -61,16 +68,22 @@ class ImportReport:
     reviews_imported: int = 0
     reviews_already_present: int = 0
     reviews_skipped: int = 0  # Anki entries that are not real reviews (e.g. manual reschedules)
+    media_imported: int = 0  # files stored, or already present with the same content
+    media_renamed: int = 0  # saved under a numbered name because the name was taken
     warnings: list[str] = field(default_factory=list)
+
+
+def _open_archive(path: Path) -> zipfile.ZipFile:
+    try:
+        return zipfile.ZipFile(path)
+    except (zipfile.BadZipFile, FileNotFoundError) as error:
+        raise AnkiFormatError(f"{path} is not an Anki export file: {error}") from error
 
 
 @contextmanager
 def open_collection(path: Path) -> Iterator[sqlite3.Connection]:
     """Open the SQLite database inside an Anki export, read-only."""
-    try:
-        archive = zipfile.ZipFile(path)
-    except (zipfile.BadZipFile, FileNotFoundError) as error:
-        raise AnkiFormatError(f"{path} is not an Anki export file: {error}") from error
+    archive = _open_archive(path)
     with archive, tempfile.TemporaryDirectory() as folder:
         names = set(archive.namelist())
         member = next((n for n in ("collection.anki21", "collection.anki2") if n in names), None)
@@ -93,8 +106,68 @@ def _from_ms(milliseconds: int) -> datetime:
     return datetime.fromtimestamp(milliseconds / 1000, UTC)
 
 
-def import_anki(session: Session, path: Path) -> ImportReport:
+def _import_media_files(path: Path, report: ImportReport) -> dict[str, str]:
+    """Store the export's media files. Returns {name in the export: name saved under} for renamed files.
+
+    Inside an export, media files are stored as "0", "1", ... and a file called "media" maps those
+    numbers to the real names as JSON (in exports made with "Support older Anki versions").
+    """
+    renamed: dict[str, str] = {}
+    with _open_archive(path) as archive:
+        if "media" not in archive.namelist():
+            return renamed
+        try:
+            names: dict[str, str] = json.loads(archive.read("media"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            report.warnings.append("The media in this export uses Anki's newer format and was not imported")
+            return renamed
+        members = set(archive.namelist())
+        for member, name in names.items():
+            if member not in members:
+                continue
+            try:
+                stored = media.store(name, archive.read(member))
+            except InvalidInputError:
+                report.warnings.append(f"Skipped media file with an unusable name: {name!r}")
+                continue
+            if stored != name:
+                renamed[name] = stored
+                report.media_renamed += 1
+            report.media_imported += 1
+    return renamed
+
+
+def _rename_references(notes, renamed: dict[str, str]) -> None:
+    """Point this import's notes to media files that were saved under a new name."""
+    if not renamed:
+        return
+
+    def rewrite(value: str) -> str:
+        for old, new in renamed.items():
+            for prefix, suffix in (('src="', '"'), ("src='", "'"), ("[sound:", "]")):
+                value = value.replace(f"{prefix}{old}{suffix}", f"{prefix}{new}{suffix}")
+        return value
+
+    for note in notes:
+        # Work on the decoded values: inside the stored JSON text, quotes are escaped
+        note.fields = json.dumps([rewrite(v) for v in json.loads(note.fields)], ensure_ascii=False)
+
+
+def import_anki_media(path: Path) -> ImportReport:
+    """Import only the media files of an export (no notes, cards or reviews)."""
     report = ImportReport()
+    renamed = _import_media_files(path, report)
+    if renamed:
+        report.warnings.append(
+            f"{len(renamed)} files had names already used by different files and were saved under "
+            "new names; cards imported earlier still point to the old files"
+        )
+    return report
+
+
+def import_anki(session: Session, path: Path, *, with_media: bool = True) -> ImportReport:
+    report = ImportReport()
+    renamed = _import_media_files(path, report) if with_media else {}
     with open_collection(path) as anki:
         models_json, decks_json = anki.execute("SELECT models, decks FROM col").fetchone()
         decks: dict[str, dict] = json.loads(decks_json)
@@ -105,6 +178,7 @@ def import_anki(session: Session, path: Path) -> ImportReport:
         note_types = _import_note_types(session, models, report)
         topics = _import_topics(session, decks, anki, report)
         notes = _import_notes(session, anki, note_types, models, report)
+        _rename_references(notes.values(), renamed)
         cards = _import_cards(session, anki, notes, topics, report)
         _import_reviews(session, anki, cards, report)
 

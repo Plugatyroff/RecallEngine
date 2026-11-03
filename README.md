@@ -86,13 +86,27 @@ In Anki: **File → Export…**, choose *Anki Collection Package (.colpkg)* or *
 tick **Include scheduling information** and **Support older Anki versions**. Then, from `backend`:
 
 ```powershell
-python scripts/import_anki.py C:\path\to\export.colpkg --dry-run   # report only, saves nothing
-python scripts/import_anki.py C:\path\to\export.colpkg             # import
+python scripts/import_anki.py C:\path\to\export.colpkg --dry-run      # report only, saves nothing
+python scripts/import_anki.py C:\path\to\export.colpkg                # import
+python scripts/import_anki.py C:\path\to\export.colpkg --media-only   # only images and audio
 ```
 
-Decks become topics, and the review history sets each card's schedule. Importing the same file
-again updates the earlier import instead of duplicating it. Media files and Cloze note types are
-not supported yet; media references in cards are kept.
+Decks become topics, and the review history sets each card's schedule. Cloze cards, images and
+audio are supported. Importing the same file again updates the earlier import instead of
+duplicating it (and brings back decks deleted since). Decks can also be imported in the app,
+with the **+** on the main screen.
+
+## Your data
+
+User data lives outside the repository, in `%USERPROFILE%\RecallEngine-data`:
+
+```text
+media\     card images and audio (MEDIA_DIR in backend/.env to change)
+backups\   daily database backups and a copy of the media (scripts/backup-database.ps1)
+```
+
+The app never sees these folders: it loads media from the backend at `/api/v1/media/<file name>`,
+so cards contain only file names.
 
 ## Project documents
 

@@ -8,16 +8,18 @@
     2. Checks that the backup file is readable and undamaged.
     3. Copies it into the destination folder with the date in its name.
     4. Deletes the oldest copies so that only the last -Keep backups remain.
+    5. Copies new and changed media files (card images and audio) into Destination\media.
+       Files are never deleted from that copy, so media removed by mistake can be recovered.
 
     Runs at most once per day unless -Force is given, so it is safe to run at every login.
-    The server and database names are read from backend/.env.
+    The server, database and media folder are read from backend/.env.
 
 .EXAMPLE
     .\backup-database.ps1
     .\backup-database.ps1 -Destination D:\Backups -Keep 30 -Force
 #>
 param(
-    [string]$Destination = (Join-Path $env:USERPROFILE "RecallEngine-backups"),
+    [string]$Destination = (Join-Path $env:USERPROFILE "RecallEngine-data\backups"),
     [int]$Keep = 14,
     [switch]$Force
 )
@@ -33,6 +35,8 @@ Get-Content $envFile | Where-Object { $_ -match "^\s*([A-Z_]+)\s*=\s*(.*)$" } | 
 $server = $settings["DB_SERVER"]
 $database = $settings["DB_NAME"]
 if (-not $server -or -not $database) { throw "DB_SERVER and DB_NAME must be set in $envFile" }
+# Same default as MEDIA_DIR in backend/app/core/config.py
+$mediaDir = if ($settings["MEDIA_DIR"]) { $settings["MEDIA_DIR"] } else { Join-Path $env:USERPROFILE "RecallEngine-data\media" }
 
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 $log = Join-Path $Destination "backup.log"
@@ -74,6 +78,14 @@ try {
             Remove-Item -LiteralPath $_.FullName
             Write-Log "DELETED $($_.Name) (keeping the newest $Keep)"
         }
+
+    if (Test-Path $mediaDir) {
+        # /E: include subfolders; no /PURGE, so nothing is ever deleted from the copy.
+        # robocopy exit codes below 8 mean success (they describe what was copied).
+        robocopy $mediaDir (Join-Path $Destination "media") /E /NJH /NJS /NFL /NDL /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "Copying media failed (robocopy exit code $LASTEXITCODE)" }
+        Write-Log "OK      media copied to $(Join-Path $Destination 'media')"
+    }
 }
 catch {
     Write-Log "FAILED  $($_.Exception.Message)"

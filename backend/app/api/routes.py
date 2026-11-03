@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api import schemas
 from app.api.deps import get_now, get_session
-from app.services import anki_import, notes, queue, reviews, topics
+from app.services import anki_import, media, notes, queue, reviews, topics
 from app.services.errors import InvalidInputError, NotFoundError
 
 router = APIRouter(prefix="/api/v1")
@@ -86,6 +87,16 @@ def import_anki_deck(file: UploadFile, session: SessionDep):
         except InvalidInputError as error:
             raise _http_error(error)
     return schemas.AnkiImportResult(**asdict(report))
+
+
+@router.get("/media/{filename}")
+def get_media(filename: str):
+    """A card's image or audio file, by the name cards use for it."""
+    try:
+        path = media.media_path(filename)
+    except (NotFoundError, InvalidInputError) as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error))
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/note-types", response_model=list[schemas.NoteTypeOut])

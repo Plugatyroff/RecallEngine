@@ -38,8 +38,14 @@ should not be shown back to back. `kind` and `priority` describe content, so the
 note; the topic belongs to the card, because Anki allows siblings in different decks.
 
 **Field values are HTML.** Anki stores HTML, so storing HTML avoids lossy conversions on import and
-export. Media references (`<img src=…>`, `[sound:…]`) are kept as they are, so media support can be
-added later without changing notes. HTML must be sanitized before display.
+export. HTML must be sanitized before display.
+
+**Media files are not in the database.** Images and audio live in a folder (`MEDIA_DIR`, by default
+`%USERPROFILE%\RecallEngine-data\media`) under the names notes use, e.g. `<img src="picture.jpg">` or
+Anki's `[sound:word.mp3]`. Files are served at `/api/v1/media/<name>`, and the app resolves names in
+cards against that address, so notes never contain folder paths or server addresses. A different
+file arriving under a name that is already taken is saved under a numbered name, and the importing
+notes are updated to match.
 
 **Field values are one JSON list per note.** This mirrors Anki and keeps queries simple; SQL Server
 can still search inside it (`JSON_VALUE`, `OPENJSON`). A `CHECK (ISJSON(fields) = 1)` constraint
@@ -98,7 +104,8 @@ a card only gets a due time after it is first studied.
 
 [`backend/scripts/backup-database.ps1`](../backend/scripts/backup-database.ps1) makes a full,
 checksum-verified backup of the database and keeps the newest 14 copies (by default in
-`%USERPROFILE%\RecallEngine-backups`, outside the repository). It runs at most once per day, so it
+`%USERPROFILE%\RecallEngine-data\backups`, outside the repository) and copies new media files to
+`backups\media`, never deleting from that copy. It runs at most once per day, so it
 can be scheduled at every Windows login with Task Scheduler. SQL Server Express has no built-in
 job scheduler (SQL Agent), which is why Windows schedules it.
 
@@ -123,5 +130,4 @@ Never change tables by hand in SSMS: the migrations would no longer match the da
 
 ## Not yet implemented
 
-- Media files (images, audio): references are stored, the files are not yet.
 - `CardLink` (relationships between cards), planned for Phase 2.

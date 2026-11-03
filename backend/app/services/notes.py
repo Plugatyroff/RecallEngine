@@ -10,7 +10,7 @@ from app.models import Card, Note, NoteType, ReviewState, Tag, Topic
 from app.services.errors import InvalidInputError, NotFoundError
 from app.services.queue import with_content
 from app.services.scheduling import DEFAULT_SCHEDULER
-from app.services.templates import Cloze, front_is_empty, render, strip_html
+from app.services.templates import Cloze, front_is_empty, render, render_sounds, strip_html
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ def render_card(card: Card) -> RenderedCard:
     gap = card.template_ord + 1
     front = render(template.front_template, fields, cloze=Cloze(gap, reveal=False))
     back = render(template.back_template, fields, front_side=front, cloze=Cloze(gap, reveal=True))
-    return RenderedCard(front=front, back=back)
+    return RenderedCard(front=render_sounds(front), back=render_sounds(back))
 
 
 def preview(card: Card, length: int = 80) -> str:
