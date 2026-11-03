@@ -14,6 +14,9 @@ notes are matched by Anki's note GUID, cards and note types by their Anki IDs, r
 and time. Everything happens in the caller's transaction, so an import either completes or
 changes nothing.
 
+Cloze note types are supported: their cards are numbered by gap and rendered by
+app.services.templates. Image Occlusion cards import, but need media support to be usable.
+
 Supported format: collections exported with "Support older Anki versions" (collection.anki21 or
 collection.anki2 inside the file). Newer exports store a compressed collection.anki21b instead.
 """
@@ -118,8 +121,6 @@ def _import_note_types(session: Session, models: dict[str, dict], report: Import
     result: dict[int, NoteType] = {}
     for model in models.values():
         anki_id = int(model["id"])
-        if model.get("type") == 1:
-            report.warnings.append(f"Note type {model['name']!r} is a Cloze type, which is not supported yet")
         fields = [f["name"] for f in sorted(model["flds"], key=lambda f: f["ord"])]
         note_type = existing.get(anki_id)
         if note_type is None:

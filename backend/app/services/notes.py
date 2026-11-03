@@ -10,7 +10,7 @@ from app.models import Card, Note, NoteType, ReviewState, Tag, Topic
 from app.services.errors import InvalidInputError, NotFoundError
 from app.services.queue import with_content
 from app.services.scheduling import DEFAULT_SCHEDULER
-from app.services.templates import front_is_empty, render, strip_html
+from app.services.templates import Cloze, front_is_empty, render, strip_html
 
 
 @dataclass(frozen=True)
@@ -28,10 +28,14 @@ def note_fields(note: Note) -> dict[str, str]:
 
 
 def render_card(card: Card) -> RenderedCard:
-    template = next(t for t in card.note.note_type.templates if t.ord == card.template_ord)
+    templates = card.note.note_type.templates
+    # A Cloze note type has a single template; its card number N (template_ord N - 1) tests gap cN
+    template = next((t for t in templates if t.ord == card.template_ord), templates[0])
     fields = note_fields(card.note)
-    front = render(template.front_template, fields)
-    return RenderedCard(front=front, back=render(template.back_template, fields, front_side=front))
+    gap = card.template_ord + 1
+    front = render(template.front_template, fields, cloze=Cloze(gap, reveal=False))
+    back = render(template.back_template, fields, front_side=front, cloze=Cloze(gap, reveal=True))
+    return RenderedCard(front=front, back=back)
 
 
 def preview(card: Card, length: int = 80) -> str:

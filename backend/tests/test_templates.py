@@ -1,4 +1,4 @@
-from app.services.templates import front_is_empty, render, strip_html
+from app.services.templates import Cloze, front_is_empty, render, strip_html
 
 FIELDS = {"Front": "alma", "Back": "<b>apple</b>", "Extra": "", "Picture": '<img src="a.jpg">'}
 
@@ -46,3 +46,29 @@ def test_optional_reverse_card_has_an_empty_front() -> None:
 
 def test_strip_html_gives_plain_text() -> None:
     assert strip_html("<div>núcleo&nbsp;(nm)</div><br>core") == "núcleo (nm) core"
+
+
+CLOZE_TEXT = {"Text": "The {{c1::determinant}} is zero when {{c2::the matrix is singular::condition}}."}
+
+
+def test_cloze_front_hides_only_the_tested_gap() -> None:
+    assert render("{{cloze:Text}}", CLOZE_TEXT, cloze=Cloze(1, reveal=False)) == (
+        'The <span class="cloze">[...]</span> is zero when the matrix is singular.'
+    )
+    assert render("{{cloze:Text}}", CLOZE_TEXT, cloze=Cloze(2, reveal=False)) == (
+        'The determinant is zero when <span class="cloze">[condition]</span>.'  # the hint
+    )
+
+
+def test_cloze_back_reveals_the_tested_gap() -> None:
+    assert render("{{cloze:Text}}", CLOZE_TEXT, cloze=Cloze(2, reveal=True)) == (
+        'The determinant is zero when <span class="cloze">the matrix is singular</span>.'
+    )
+
+
+def test_cloze_gaps_can_repeat_and_contain_html() -> None:
+    fields = {"Text": "{{c1::<b>A</b>}} and {{c1::B}}"}
+
+    assert render("{{cloze:Text}}", fields, cloze=Cloze(1, reveal=False)) == (
+        '<span class="cloze">[...]</span> and <span class="cloze">[...]</span>'
+    )
