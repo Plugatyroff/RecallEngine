@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { TextDialog } from '@/components/text-dialog';
 import { Button, Input, Label, Row, SectionTitle } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { showMenu } from '@/lib/confirm';
@@ -11,7 +12,7 @@ import { api, ApiError } from '@/services/api';
 
 /**
  * The subtopics of one topic (or the top-level topics), plus a field to add a new one.
- * Tap a topic to open it; long-press it for a menu (delete).
+ * Tap a topic to open it; long-press it for a menu (rename, delete).
  */
 export function TopicList({
   topics,
@@ -24,17 +25,29 @@ export function TopicList({
 }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // The topic whose rename dialog is open, if any
+  const [renaming, setRenaming] = useState<TopicWithTotals | null>(null);
   const children = topics.filter((t) => t.parent_id === parentId);
 
-  // Long-pressing a topic opens a small menu of actions (for now only Delete)
+  // Long-pressing a topic opens a small menu of actions
   const openMenu = async (topic: TopicWithTotals) => {
-    const choice = await showMenu(topic.name, [{ label: 'Delete', destructive: true }]);
-    if (choice !== 0) return;
-    try {
-      if (await confirmAndDeleteTopic(topic, topics)) onChanged();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
+    const choice = await showMenu(topic.name, [{ label: 'Rename' }, { label: 'Delete', destructive: true }]);
+    if (choice === 0) {
+      setRenaming(topic);
+    } else if (choice === 1) {
+      try {
+        if (await confirmAndDeleteTopic(topic, topics)) onChanged();
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : String(e));
+      }
     }
+  };
+
+  const rename = async (topic: TopicWithTotals, newName: string) => {
+    // Errors (e.g. a name already used here) are shown inside the dialog, which stays open
+    await api.renameTopic(topic.id, newName);
+    setRenaming(null);
+    onChanged();
   };
 
   const addTopic = async () => {
@@ -71,6 +84,15 @@ export function TopicList({
         <Button title="Add" onPress={addTopic} disabled={!name.trim()} />
       </View>
       {error ? <Label muted>{error}</Label> : null}
+      {renaming ? (
+        <TextDialog
+          title="Rename topic"
+          initialValue={renaming.name}
+          submitLabel="Rename"
+          onSubmit={(newName) => rename(renaming, newName)}
+          onCancel={() => setRenaming(null)}
+        />
+      ) : null}
     </View>
   );
 }

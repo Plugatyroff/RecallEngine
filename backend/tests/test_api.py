@@ -169,6 +169,21 @@ def test_queue_can_be_limited_to_a_topic_and_its_subtopics(client: TestClient) -
     assert client.get("/api/v1/review/queue", params={"topic_id": 999999}).status_code == 404
 
 
+def test_a_topic_can_be_renamed(client: TestClient) -> None:
+    hungarian = create_topic(client, "hungarian")
+    create_note(client, hungarian["id"], ["alma", "apple"])
+    create_topic(client, "Mathematics")
+
+    renamed = client.patch(f"/api/v1/topics/{hungarian['id']}", json={"name": "  Hungarian  "})
+
+    assert renamed.status_code == 200
+    assert (renamed.json()["name"], renamed.json()["card_count"]) == ("Hungarian", 1)
+    # Same name as a sibling, empty name, unknown topic
+    assert client.patch(f"/api/v1/topics/{hungarian['id']}", json={"name": "Mathematics"}).status_code == 422
+    assert client.patch(f"/api/v1/topics/{hungarian['id']}", json={"name": "   "}).status_code == 422
+    assert client.patch("/api/v1/topics/999999", json={"name": "X"}).status_code == 404
+
+
 def test_deleting_a_topic_removes_its_subtopics_cards_and_history(client: TestClient) -> None:
     hungarian = create_topic(client, "Hungarian")
     vocab = create_topic(client, "Vocabulary", hungarian["id"])

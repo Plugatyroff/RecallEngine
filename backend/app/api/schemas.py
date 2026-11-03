@@ -20,6 +20,10 @@ class TopicCreate(BaseModel):
     parent_id: int | None = None
 
 
+class TopicRename(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
 class TopicDeleted(BaseModel):
     topics: int  # the topic and its subtopics
     cards: int

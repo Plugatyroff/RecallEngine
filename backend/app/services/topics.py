@@ -55,17 +55,35 @@ def subtree_ids(session: Session, topic_id: int) -> list[int]:
     return result
 
 
-def create_topic(session: Session, name: str, parent_id: int | None) -> Topic:
+def _valid_name(session: Session, name: str, parent_id: int | None, topic_id: int | None = None) -> str:
+    """The trimmed name, if it is not empty and no other topic next to it has the same name."""
     name = name.strip()
     if not name:
         raise InvalidInputError("Topic name must not be empty")
-    if parent_id is not None and session.get(Topic, parent_id) is None:
-        raise NotFoundError(f"Topic {parent_id} not found")
-    duplicate = session.scalar(select(Topic.id).where(Topic.parent_id == parent_id, Topic.name == name))
+    if len(name) > 200:
+        raise InvalidInputError("Topic name must be at most 200 characters")
+    duplicate = session.scalar(
+        select(Topic.id).where(Topic.parent_id == parent_id, Topic.name == name, Topic.id != topic_id)
+    )
     if duplicate is not None:
         raise InvalidInputError(f"A topic called {name!r} already exists here")
-    topic = Topic(name=name, parent_id=parent_id)
+    return name
+
+
+def create_topic(session: Session, name: str, parent_id: int | None) -> Topic:
+    if parent_id is not None and session.get(Topic, parent_id) is None:
+        raise NotFoundError(f"Topic {parent_id} not found")
+    topic = Topic(name=_valid_name(session, name, parent_id), parent_id=parent_id)
     session.add(topic)
+    session.flush()
+    return topic
+
+
+def rename_topic(session: Session, topic_id: int, name: str) -> Topic:
+    topic = session.get(Topic, topic_id)
+    if topic is None:
+        raise NotFoundError(f"Topic {topic_id} not found")
+    topic.name = _valid_name(session, name, topic.parent_id, topic_id)
     session.flush()
     return topic
 

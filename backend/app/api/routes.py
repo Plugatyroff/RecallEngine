@@ -42,6 +42,15 @@ def create_topic(body: schemas.TopicCreate, session: SessionDep):
     return schemas.TopicOut(id=topic.id, parent_id=topic.parent_id, name=topic.name, card_count=0, due_count=0)
 
 
+@router.patch("/topics/{topic_id}", response_model=schemas.TopicOut)
+def rename_topic(topic_id: int, body: schemas.TopicRename, session: SessionDep, now: NowDep):
+    try:
+        topic = topics.rename_topic(session, topic_id, body.name)
+    except (NotFoundError, InvalidInputError) as error:
+        raise _http_error(error)
+    return next(t for t in topics.list_topics(session, now) if t.id == topic.id)
+
+
 @router.delete("/topics/{topic_id}", response_model=schemas.TopicDeleted)
 def delete_topic(topic_id: int, session: SessionDep):
     """Delete a topic with all its subtopics, their cards and the cards' review history."""
