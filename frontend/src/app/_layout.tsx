@@ -1,18 +1,17 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
+/** All screens are stacked: opening a screen puts it on top, the back button returns. */
+export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack>
+        <Stack.Screen name="index" options={{ title: 'Recall Engine' }} />
+        <Stack.Screen name="topic/[id]" options={{ title: '' }} />
+        <Stack.Screen name="add-card" options={{ title: 'Add card', presentation: 'modal' }} />
+        <Stack.Screen name="review" options={{ title: 'Review' }} />
+      </Stack>
     </ThemeProvider>
   );
 }

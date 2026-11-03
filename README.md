@@ -6,14 +6,23 @@ Recall Engine combines Anki-style flashcards, Obsidian-style hierarchical and li
 that brings material back on its own. It starts with reviews only hours after first learning something,
 then spaces them out as the memory becomes stable.
 
-> **Status:** early development. The project structure is in place; the features below are planned, not yet implemented.
+> **Status:** early development. The basic loop works: create topics and cards, review them, see when each is due next.
 
-## Planned features
+## Features
+
+Implemented:
 
 - Unlimited nested topics (e.g. Mathematics → Linear Algebra → Matrices)
-- Flashcards with Markdown and LaTeX, linked to related cards
-- Configurable scheduling with short initial intervals (≈2 h, 6 h, 12 h, then days)
-- Mixed review sessions that balance subjects
+- Anki-compatible notes, note types and card templates (e.g. one note → forward and reverse card)
+- Pluggable scheduling: FSRS (Anki's algorithm) by default, or fixed custom intervals such as 2 h → 6 h → 12 h → 1 d
+- Review screen with Again / Hard / Good / Easy, showing when each choice brings the card back
+
+Planned:
+
+- Importing Anki collections, including review history
+- LaTeX rendering and media (images, audio)
+- Mixed review sessions that balance subjects and bring back neglected topics
+- Links between cards
 - Android notifications for due reviews
 
 ## Tech stack
@@ -34,7 +43,7 @@ docs/       Design notes, e.g. the database design
 
 ## Running the frontend
 
-Requires Node.js.
+Requires Node.js, and the backend running (see below).
 
 ```bash
 cd frontend
@@ -43,6 +52,9 @@ npx expo start
 ```
 
 Then scan the QR code with Expo Go on Android, or press `w` to open it in the browser.
+
+The app finds the backend on port 8000 of the computer running `npx expo start`. To use another
+address, create `frontend/.env.local` with e.g. `EXPO_PUBLIC_API_URL=http://192.168.0.10:8000`.
 
 ## Running the backend
 
