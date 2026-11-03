@@ -14,6 +14,7 @@ dependencies = [
     "pyodbc>=5.3",  # connects to SQL Server through the ODBC driver
     "alembic>=1.20",
     "pydantic-settings>=2.16",
+    "fsrs>=6.3,<7",  # Anki's scheduling algorithm (used only by app/services/scheduling/fsrs_scheduler.py)
 ]
 
 # Tools needed only for development, installed with: pip install -e . --group dev

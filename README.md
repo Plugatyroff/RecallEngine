@@ -71,6 +71,7 @@ The API is then available at `http://localhost:8000`, with interactive docs at `
 
 - [PROJECT.md](PROJECT.md) — full product and technical specification
 - [docs/database-design.md](docs/database-design.md) — tables and the reasoning behind them
+- [docs/scheduling.md](docs/scheduling.md) — how reviews are scheduled and how to plug in another algorithm
 
 ## License
 
