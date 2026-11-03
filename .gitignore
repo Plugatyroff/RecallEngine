@@ -1,0 +1,22 @@
+# Repository-wide ignores.
+# Each sub-project has its own .gitignore too (see frontend/.gitignore).
+
+# Environment files hold secrets and machine-specific settings.
+# Commit .env.example as a template instead.
+.env
+.env.*
+!.env.example
+
+# Python (backend)
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local, per-machine Claude Code settings
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
