@@ -3,40 +3,52 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { CardHtml } from '@/components/card-html';
-import { ReviewCard } from '@/components/review-card';
-import { Button, ErrorMessage, Label, Loading, Screen } from '@/components/ui';
+import { Button, ErrorMessage, Loading, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
-import { formatInterval } from '@/lib/format';
-import { api, type ReviewResult } from '@/services/api';
+import { api } from '@/services/api';
 
-/** Review a single card opened from a topic, whether or not it is due. */
+/**
+ * Practice a card opened from a topic: front, then answer, then the topic's next card.
+ * Nothing is recorded, so practising here never changes a card's schedule; reviews that count
+ * happen in review sessions.
+ */
 export default function CardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const cardId = Number(id);
-  const load = useCallback(() => api.card(cardId), [cardId]);
-  const { data: card, error, loading, reload } = useApi(load);
-  const [result, setResult] = useState<ReviewResult | null>(null);
+  const load = useCallback(async () => {
+    const card = await api.card(cardId);
+    const siblings = await api.cardsInTopic(card.topic_id);
+    return { card, siblings };
+  }, [cardId]);
+  const { data, error, loading, reload } = useApi(load);
+  // Which card's answer is shown; compared with the current id so a new card starts on its front
+  const [revealedId, setRevealedId] = useState<number | null>(null);
 
   if (loading) return <Loading />;
-  if (error || !card) return <ErrorMessage message={error ?? 'Card not found'} onRetry={reload} />;
+  if (error || !data) return <ErrorMessage message={error ?? 'Card not found'} onRetry={reload} />;
+
+  const { card, siblings } = data;
+  const revealed = revealedId === card.id;
+  const position = siblings.findIndex((c) => c.id === card.id);
+  const next = position >= 0 ? siblings[position + 1] : undefined;
 
   return (
     <Screen>
       <Stack.Screen options={{ title: card.topic_name }} />
-      {result ? (
-        <>
-          <Label muted>Next review in {formatInterval(new Date(), result.due_at)}</Label>
-          <View style={{ flex: 1 }}>
-            <CardHtml html={card.back_html} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: Spacing.two }}>
-            <Button primary title="Back" onPress={() => router.back()} />
-          </View>
-        </>
-      ) : (
-        <ReviewCard key={card.id} card={card} onGraded={setResult} />
-      )}
+      <View style={{ flex: 1 }}>
+        <CardHtml html={revealed ? card.back_html : card.front_html} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: Spacing.two }}>
+        {!revealed ? (
+          <Button primary title="Show answer" onPress={() => setRevealedId(card.id)} />
+        ) : next ? (
+          // replace: the back arrow returns to the topic, not through every card seen
+          <Button primary title="Next card" onPress={() => router.replace({ pathname: '/card/[id]', params: { id: String(next.id) } })} />
+        ) : (
+          <Button primary title="Back to topic" onPress={() => router.back()} />
+        )}
+      </View>
     </Screen>
   );
 }
