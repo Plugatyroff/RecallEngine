@@ -65,6 +65,17 @@ a card only gets a due time after it is first studied.
 | `RecallEngine` | Development data |
 | `RecallEngine_test` | Automated tests; rebuilt from the migrations on every test run |
 
+## Backups
+
+[`backend/scripts/backup-database.ps1`](../backend/scripts/backup-database.ps1) makes a full,
+checksum-verified backup of the database and keeps the newest 14 copies (by default in
+`%USERPROFILE%\RecallEngine-backups`, outside the repository). It runs at most once per day, so it
+can be scheduled at every Windows login with Task Scheduler. SQL Server Express has no built-in
+job scheduler (SQL Agent), which is why Windows schedules it.
+
+To restore, use SSMS: right-click **Databases → Restore Database…**, choose **Device**, and select a
+`.bak` file. Restoring under a different database name is a safe way to inspect an old backup.
+
 ## Changing the schema
 
 1. Edit the models in `backend/app/models/`.
