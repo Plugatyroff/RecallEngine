@@ -16,10 +16,11 @@ Implemented:
 - Anki-compatible notes, note types and card templates (e.g. one note → forward and reverse card)
 - Pluggable scheduling: FSRS (Anki's algorithm) by default, or fixed custom intervals such as 2 h → 6 h → 12 h → 1 d
 - Review screen with Again / Hard / Good / Easy, showing when each choice brings the card back
+- Review everything, a single topic with its subtopics, or a single card
+- Importing Anki collections, including review history (replayed through the scheduler)
 
 Planned:
 
-- Importing Anki collections, including review history
 - LaTeX rendering and media (images, audio)
 - Mixed review sessions that balance subjects and bring back neglected topics
 - Links between cards
@@ -78,6 +79,20 @@ uvicorn app.main:app --host 0.0.0.0 --reload
 
 The API is then available at `http://localhost:8000`, with interactive docs at `http://localhost:8000/docs`.
 `--host 0.0.0.0` makes it reachable from a phone on the same Wi-Fi via the computer's local IP address.
+
+## Importing from Anki
+
+In Anki: **File → Export…**, choose *Anki Collection Package (.colpkg)* or *Anki Deck Package (.apkg)*,
+tick **Include scheduling information** and **Support older Anki versions**. Then, from `backend`:
+
+```powershell
+python scripts/import_anki.py C:\path\to\export.colpkg --dry-run   # report only, saves nothing
+python scripts/import_anki.py C:\path\to\export.colpkg             # import
+```
+
+Decks become topics, and the review history sets each card's schedule. Importing the same file
+again updates the earlier import instead of duplicating it. Media files and Cloze note types are
+not supported yet; media references in cards are kept.
 
 ## Project documents
 
