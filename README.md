@@ -28,7 +28,7 @@ then spaces them out as the memory becomes stable.
 
 ```text
 frontend/   Expo app (Android, web)
-backend/    FastAPI REST API (planned)
+backend/    FastAPI REST API
 docs/       Architecture and design notes (planned)
 ```
 
@@ -43,6 +43,21 @@ npx expo start
 ```
 
 Then scan the QR code with Expo Go on Android, or press `w` to open it in the browser.
+
+## Running the backend
+
+Requires Python 3.12+. From the `backend` folder (commands for Windows PowerShell):
+
+```powershell
+python -m venv .venv                     # create an isolated Python environment
+.venv\Scripts\Activate.ps1               # use it in this terminal
+pip install -e . --group dev             # install the API and its dev tools
+pytest                                   # run the tests
+uvicorn app.main:app --host 0.0.0.0 --reload
+```
+
+The API is then available at `http://localhost:8000`, with interactive docs at `http://localhost:8000/docs`.
+`--host 0.0.0.0` makes it reachable from a phone on the same Wi-Fi via the computer's local IP address.
 
 ## Project documents
 

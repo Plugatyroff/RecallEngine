@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recall-engine-backend"
+version = "0.1.0"
+description = "REST API for Recall Engine"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162",
+    "uvicorn[standard]>=0.54",
+]
+
+# Tools needed only for development, installed with: pip install -e . --group dev
+[dependency-groups]
+dev = [
+    "pytest>=9.2",
+    "httpx2>=2.16",  # used by FastAPI's TestClient
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
