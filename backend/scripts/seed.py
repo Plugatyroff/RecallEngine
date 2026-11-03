@@ -27,6 +27,8 @@ from app.models import (
     Topic,
     note_tags,
 )
+from app.services.reviews import record_review
+from app.services.scheduling import DEFAULT_SCHEDULER
 
 NOW = datetime.now(UTC)
 HOUR = timedelta(hours=1)
@@ -83,14 +85,16 @@ NOTES: dict[tuple[str, ...], tuple[str, str, list[str], list[tuple[str, str]]]] 
     ]),
 }
 
-# Example schedules, applied to cards in turn, so the data shows every state:
-# (status, due_at, review history as (time ago, grade))
-EXAMPLE_STATES = [
-    ("new", None, []),
-    ("learning", NOW + 1 * HOUR, [(1 * HOUR, 3)]),
-    ("learning", NOW - 30 * MINUTE, [(8 * HOUR, 3), (6 * HOUR + 30 * MINUTE, 3)]),
-    ("relearning", NOW - 10 * MINUTE, [(3 * DAY, 3), (2 * HOUR, 1)]),
-    ("review", NOW + 2 * DAY, [(3 * DAY, 3), (3 * DAY - 2 * HOUR, 3), (2 * DAY, 4), (1 * DAY, 3)]),
+# Example review histories as (time ago, grade), applied to cards in turn. They are recorded through
+# the real scheduler, so the resulting states are consistent; together they cover new cards, cards
+# due now, cards due later, and forgotten cards.
+EXAMPLE_HISTORIES = [
+    [],
+    [(1 * HOUR, 1)],                            # just failed: due again (10-minute step)
+    [(4 * DAY, 3)],                             # learned 4 days ago: due now
+    [(20 * DAY, 3), (17 * DAY, 3), (2 * HOUR, 1)],  # forgotten after a long interval: relearning
+    [(1 * DAY, 3)],                             # learned yesterday: due in a day or two
+    [(30 * MINUTE, 4)],                         # easy: due in several days
 ]
 
 
@@ -140,18 +144,9 @@ def get_tag(session: Session, name: str, cache: dict) -> Tag:
 
 
 def add_schedule(card: Card, example: int) -> None:
-    status, due_at, history = EXAMPLE_STATES[example % len(EXAMPLE_STATES)]
-    card.review_state = ReviewState(
-        status=status,
-        due_at=due_at,
-        last_reviewed_at=NOW - history[-1][0] if history else None,
-        review_count=len(history),
-        lapse_count=sum(1 for _, grade in history if grade == 1),
-    )
-    for i, (ago, grade) in enumerate(history):
-        next_due = NOW - history[i + 1][0] if i + 1 < len(history) else due_at
-        card.reviews.append(Review(reviewed_at=NOW - ago, grade=grade, duration_ms=4000 + 1500 * i,
-                                   next_due_at=next_due, scheduler="seed"))
+    card.review_state = ReviewState(scheduler=DEFAULT_SCHEDULER)
+    for i, (ago, grade) in enumerate(EXAMPLE_HISTORIES[example % len(EXAMPLE_HISTORIES)]):
+        record_review(card, grade, NOW - ago, duration_ms=4000 + 1500 * i)
 
 
 def seed(session: Session) -> tuple[int, int]:

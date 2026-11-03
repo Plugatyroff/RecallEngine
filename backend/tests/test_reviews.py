@@ -1,7 +1,7 @@
 """Tests for recording reviews in the database."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -43,6 +43,23 @@ def test_recording_a_review_reschedules_the_card_and_logs_it(session: Session) -
     logged = session.get(Review, review.id)
     assert (logged.grade, logged.duration_ms, logged.scheduler) == (GOOD, 3200, "fsrs")
     assert logged.next_due_at == state.due_at
+
+
+def test_history_without_scheduler_data_is_replayed(session: Session) -> None:
+    """E.g. cards from a migration or an import: they have reviews but no FSRS data yet."""
+    card = new_card(session)
+    card.review_state.status = "learning"
+    for days_ago, grade in [(5, GOOD), (3, AGAIN)]:
+        card.reviews.append(Review(reviewed_at=NOW - timedelta(days=days_ago), grade=grade,
+                                   next_due_at=NOW, scheduler="anki-import"))
+    session.flush()
+
+    record_review(card, GOOD, NOW)
+
+    state = card.review_state
+    assert state.review_count == 3
+    assert state.lapse_count == 1
+    assert "stability" in json.loads(state.scheduler_state)
 
 
 def test_each_card_is_scheduled_by_its_own_scheduler(session: Session) -> None:

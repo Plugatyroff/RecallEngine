@@ -31,6 +31,7 @@ def get_scheduler(name: str = DEFAULT_SCHEDULER) -> MemoryScheduler:
 
 
 __all__ = [
+    "DEFAULT_SCHEDULER",
     "AGAIN",
     "EASY",
     "GOOD",
