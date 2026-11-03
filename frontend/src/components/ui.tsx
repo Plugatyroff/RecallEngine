@@ -1,13 +1,33 @@
 /** Small building blocks shared by the screens, styled with the app's light/dark colors. */
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * The page area of a screen. On phones the app is drawn under the system bars (e.g. Android's
+ * navigation bar), so the bottom and side insets are added as padding to keep buttons uncovered.
+ * The top is already handled by the screen's header.
+ */
 export function Screen({ children }: { children: ReactNode }) {
   const colors = useTheme();
-  return <View style={[styles.screen, { backgroundColor: colors.background }]}>{children}</View>;
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: colors.background,
+          paddingBottom: Spacing.three + insets.bottom,
+          paddingLeft: Spacing.three + insets.left,
+          paddingRight: Spacing.three + insets.right,
+        },
+      ]}>
+      {children}
+    </View>
+  );
 }
 
 export function Label({ children, muted, size }: { children: ReactNode; muted?: boolean; size?: number }) {
