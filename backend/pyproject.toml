@@ -10,6 +10,10 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.162",
     "uvicorn[standard]>=0.54",
+    "sqlalchemy>=2.1",
+    "pyodbc>=5.3",  # connects to SQL Server through the ODBC driver
+    "alembic>=1.20",
+    "pydantic-settings>=2.16",
 ]
 
 # Tools needed only for development, installed with: pip install -e . --group dev
