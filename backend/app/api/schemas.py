@@ -62,6 +62,8 @@ class CardDetail(BaseModel):
     lapse_count: int
     front_html: str
     back_html: str
+    # When the card would come back if reviewed now, for each grade (1 = Again ... 4 = Easy)
+    next_due_by_grade: dict[int, datetime]
 
 
 class CardToReview(BaseModel):

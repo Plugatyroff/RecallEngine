@@ -55,6 +55,7 @@ export type CardDetail = {
   lapse_count: number;
   front_html: string;
   back_html: string;
+  next_due_by_grade: Record<Grade, string>;
 };
 
 export type Grade = 1 | 2 | 3 | 4;

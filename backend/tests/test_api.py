@@ -143,6 +143,7 @@ def test_a_card_can_be_opened(client: TestClient) -> None:
 
     assert (card["front_html"], card["topic_name"], card["status"]) == ("alma", "Hungarian", "new")
     assert "apple" in card["back_html"]
+    assert sorted(card["next_due_by_grade"]) == ["1", "2", "3", "4"]
     assert client.get("/api/v1/cards/999999").status_code == 404
 
 

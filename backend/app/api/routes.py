@@ -73,7 +73,7 @@ def create_note(body: schemas.NoteCreate, session: SessionDep):
 
 
 @router.get("/cards/{card_id}", response_model=schemas.CardDetail)
-def get_card(card_id: int, session: SessionDep):
+def get_card(card_id: int, session: SessionDep, now: NowDep):
     try:
         card = notes.get_card(session, card_id)
     except NotFoundError as error:
@@ -84,6 +84,7 @@ def get_card(card_id: int, session: SessionDep):
         status=state.status, due_at=state.due_at, last_reviewed_at=state.last_reviewed_at,
         review_count=state.review_count, lapse_count=state.lapse_count,
         front_html=rendered.front, back_html=rendered.back,
+        next_due_by_grade=reviews.next_due_by_grade(card, now),
     )
 
 
