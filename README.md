@@ -47,3 +47,7 @@ Then scan the QR code with Expo Go on Android, or press `w` to open it in the br
 ## Project documents
 
 - [PROJECT.md](PROJECT.md) — full product and technical specification
+
+## License
+
+[MIT](LICENSE)
