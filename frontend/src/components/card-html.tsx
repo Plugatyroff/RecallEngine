@@ -4,7 +4,11 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '@/hooks/use-theme';
 import { cardDocument, MEDIA_URL } from '@/lib/card-document';
 
-/** Shows a card's HTML on Android and iOS. The browser version is card-html.web.tsx. */
+/**
+ * Shows a card's HTML on Android and iOS. The browser version is card-html.web.tsx.
+ * JavaScript is enabled for KaTeX (math); card content itself cannot run scripts, because the
+ * backend sanitizes it and the page's content security policy only allows KaTeX's files.
+ */
 export function CardHtml({ html }: { html: string }) {
   const colors = useTheme();
   return (
@@ -13,7 +17,7 @@ export function CardHtml({ html }: { html: string }) {
       originWhitelist={['*']}
       // baseUrl: file names in the card (images, audio) load from the backend's media address
       source={{ html: cardDocument(html, colors), baseUrl: MEDIA_URL }}
-      javaScriptEnabled={false}
+      javaScriptEnabled
     />
   );
 }

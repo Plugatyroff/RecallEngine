@@ -3,10 +3,15 @@
 Run locally with:  uvicorn app.main:app --reload
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 app = FastAPI(title="Recall Engine API")
 
@@ -20,6 +25,8 @@ app.add_middleware(
 )
 
 app.include_router(router)
+# Files used by the app's card view, e.g. KaTeX for math (see static/README.md)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/health")

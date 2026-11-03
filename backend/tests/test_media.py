@@ -65,6 +65,15 @@ def test_media_is_served_by_the_api() -> None:
     assert client.get("/api/v1/media/..%5Csecret.txt").status_code == 404
 
 
+def test_katex_files_are_served() -> None:
+    client = TestClient(app)
+
+    for path in ("katex.min.js", "katex.min.css", "contrib/auto-render.min.js", "render-math.js",
+                 "fonts/KaTeX_Main-Regular.woff2"):
+        assert client.get(f"/static/katex/{path}").status_code == 200, path
+    assert client.get("/static/../app/main.py").status_code == 404
+
+
 def test_sound_references_become_audio_players() -> None:
     assert render_sounds("hola [sound:hola.mp3]") == (
         'hola <audio controls preload="none" src="hola.mp3"></audio>'

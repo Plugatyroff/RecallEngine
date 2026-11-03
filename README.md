@@ -17,11 +17,12 @@ Implemented:
 - Pluggable scheduling: FSRS (Anki's algorithm) by default, or fixed custom intervals such as 2 h → 6 h → 12 h → 1 d
 - Review screen with Again / Hard / Good / Easy, showing when each choice brings the card back
 - Review everything, a single topic with its subtopics, or a single card
-- Importing Anki collections, including review history (replayed through the scheduler)
+- Importing Anki collections, including review history (replayed through the scheduler), and decks from AnkiWeb
+- Cloze cards, images and audio, and LaTeX math rendered with KaTeX
+- Card content from any source is sanitized, so it cannot run code
 
 Planned:
 
-- LaTeX rendering and media (images, audio)
 - Mixed review sessions that balance subjects and bring back neglected topics
 - Links between cards
 - Android notifications for due reviews
