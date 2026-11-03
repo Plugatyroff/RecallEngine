@@ -173,7 +173,8 @@ The system should not require users to repeatedly reconstruct every elementary p
 | Language                  | TypeScript                          |
 | Backend                   | Python                              |
 | API framework             | FastAPI                             |
-| Database                  | PostgreSQL                          |
+| Database                  | Microsoft SQL Server (Express)      |
+| Database driver           | pyodbc + ODBC Driver 18             |
 | ORM                       | SQLAlchemy                          |
 | Database migrations       | Alembic                             |
 | API communication         | REST / JSON over HTTPS              |
@@ -189,7 +190,14 @@ The frontend should eventually be accessible from both Android and a laptop. Eva
 
 The database and backend should initially run locally for development, with a straightforward path toward cloud deployment.
 
-For cloud hosting, we can evaluate services such as Supabase for managed PostgreSQL and a separate Python hosting provider for FastAPI.
+For local development, the database runs on a local SQL Server Express instance using Windows authentication, so no database password is stored in the project. Only the backend connects to the database; the frontend never does.
+
+SQL Server was chosen over PostgreSQL because it is already installed and familiar to the developer. SQLAlchemy keeps most code database-agnostic, so this choice can be revisited. SQL Server-specific constraints to design around:
+
+- A self-referencing foreign key (such as `Topic.parent_id`) cannot use `ON DELETE CASCADE`; deleting topics must be handled in the service layer.
+- Store timestamps as `DATETIME2` in UTC.
+
+For cloud hosting, we can evaluate Azure SQL Database for the managed database and a separate Python hosting provider for FastAPI.
 
 Cloud deployment and authentication should not be prerequisites for the first working prototype.
 
@@ -205,7 +213,7 @@ The application should follow this general architecture:
 ↓
 **SQLAlchemy**
 ↓
-**PostgreSQL database**
+**SQL Server database**
 
 Keep the following concerns separated:
 
@@ -282,7 +290,7 @@ Build incrementally, prioritizing a functional application over unnecessary arch
 
 - Initialize the Expo frontend.
 - Initialize the FastAPI backend.
-- Configure PostgreSQL.
+- Configure the SQL Server database.
 - Create the initial database models.
 - Implement topic creation and retrieval.
 - Implement flashcard creation and retrieval.

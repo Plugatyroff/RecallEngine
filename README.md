@@ -22,7 +22,7 @@ then spaces them out as the memory becomes stable.
 | -------- | -------------------------------------------- |
 | Frontend | React Native, Expo, Expo Router, TypeScript  |
 | Backend  | Python, FastAPI, SQLAlchemy, Alembic         |
-| Database | PostgreSQL                                   |
+| Database | Microsoft SQL Server                         |
 
 ## Repository layout
 
