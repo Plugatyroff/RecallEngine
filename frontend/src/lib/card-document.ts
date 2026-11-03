@@ -47,7 +47,9 @@ export function cardDocument(html: string, colors: { text: string; background: s
     padding: 24px 16px; word-wrap: break-word;
   }
   hr#answer { border: none; border-top: 1px solid ${colors.text}33; margin: 20px 0; }
-  img { max-width: 100%; height: auto; }
+  /* Many card images (e.g. formulas) are black on a transparent background, which would be
+     invisible on a dark card, so images always get a white backing. */
+  img { max-width: 100%; height: auto; background-color: #ffffff; border-radius: 6px; padding: 4px; }
   audio { display: block; width: 100%; max-width: 360px; margin: 12px auto; }
   /* The gap a Cloze card tests: [...] on the front, the answer on the back */
   .cloze { font-weight: bold; color: #208AEF; }
