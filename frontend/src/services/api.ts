@@ -96,6 +96,45 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type AnkiImportResult = {
+  topics_created: number;
+  notes_created: number;
+  notes_updated: number;
+  cards_created: number;
+  cards_updated: number;
+  reviews_imported: number;
+  warnings: string[];
+};
+
+/** A file chosen with expo-document-picker: on phones it has a uri, in the browser a File object. */
+export type PickedFile = { uri: string; name: string; mimeType?: string; file?: File };
+
+async function upload<T>(path: string, picked: PickedFile): Promise<T> {
+  const form = new FormData();
+  if (picked.file) {
+    form.append('file', picked.file, picked.name);
+  } else {
+    // React Native's FormData sends a local file when given its uri, name and type
+    form.append('file', {
+      uri: picked.uri,
+      name: picked.name,
+      type: picked.mimeType ?? 'application/octet-stream',
+    } as unknown as Blob);
+  }
+  // No Content-Type header: fetch sets it, including the boundary between form parts
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { method: 'POST', body: form });
+  } catch {
+    throw new ApiError(`Cannot reach the server at ${API_URL}. Is the backend running?`);
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new ApiError(typeof body?.detail === 'string' ? body.detail : `Upload failed (${response.status})`);
+  }
+  return (await response.json()) as T;
+}
+
 function post<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 }
@@ -110,6 +149,8 @@ export const api = {
   cardsInTopic: (topicId: number) => request<CardSummary[]>(`/api/v1/topics/${topicId}/cards`),
   createNote: (topicId: number, fields: string[]) =>
     post<{ id: number; card_ids: number[] }>('/api/v1/notes', { topic_id: topicId, fields }),
+  /** Import an Anki deck (.apkg) or collection (.colpkg). */
+  importAnki: (file: PickedFile) => upload<AnkiImportResult>('/api/v1/import/anki', file),
   card: (cardId: number) => request<CardDetail>(`/api/v1/cards/${cardId}`),
   /** Cards to review now; with a topic, only that topic and its subtopics. */
   reviewQueue: (topicId?: number) =>

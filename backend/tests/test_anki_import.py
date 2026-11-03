@@ -7,9 +7,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_session
+from app.main import app
 from app.models import Card, Note, NoteType, Review, Tag, Topic
 from app.services.anki_import import AnkiFormatError, import_anki
 
@@ -166,6 +169,22 @@ def test_newer_compressed_format_is_rejected_with_advice(session: Session, tmp_p
 
     with pytest.raises(AnkiFormatError, match="Support older Anki versions"):
         import_anki(session, export)
+
+
+def test_a_deck_can_be_uploaded_through_the_api(session: Session, tmp_path: Path) -> None:
+    app.dependency_overrides[get_session] = lambda: session
+    try:
+        client = TestClient(app)
+        with build_export(tmp_path).open("rb") as deck:
+            response = client.post("/api/v1/import/anki", files={"file": ("deck.apkg", deck)})
+        rejected = client.post("/api/v1/import/anki", files={"file": ("notes.txt", b"hello")})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+    assert (response.json()["notes_created"], response.json()["cards_created"]) == (3, 4)
+    assert rejected.status_code == 422
+    assert "not an Anki export" in rejected.json()["detail"]
 
 
 def test_a_file_that_is_not_an_export_is_rejected(session: Session, tmp_path: Path) -> None:

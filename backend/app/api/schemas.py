@@ -26,6 +26,21 @@ class TopicDeleted(BaseModel):
     notes: int
 
 
+class AnkiImportResult(BaseModel):
+    note_types_created: int
+    note_types_updated: int
+    topics_created: int
+    tags_created: int
+    notes_created: int
+    notes_updated: int
+    cards_created: int
+    cards_updated: int
+    reviews_imported: int
+    reviews_already_present: int
+    reviews_skipped: int
+    warnings: list[str]
+
+
 class NoteTypeOut(BaseModel):
     id: int
     name: str

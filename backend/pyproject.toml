@@ -15,6 +15,7 @@ dependencies = [
     "alembic>=1.20",
     "pydantic-settings>=2.16",
     "fsrs>=6.3,<7",  # Anki's scheduling algorithm (used only by app/services/scheduling/fsrs_scheduler.py)
+    "python-multipart>=0.0.20",  # lets FastAPI receive uploaded files (Anki decks)
 ]
 
 # Tools needed only for development, installed with: pip install -e . --group dev

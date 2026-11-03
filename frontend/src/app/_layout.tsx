@@ -12,6 +12,7 @@ export default function RootLayout() {
         <Stack.Screen name="card/[id]" options={{ title: '' }} />
         <Stack.Screen name="add-card" options={{ title: 'Add card', presentation: 'modal' }} />
         <Stack.Screen name="review" options={{ title: 'Review' }} />
+        <Stack.Screen name="import" options={{ title: 'Add decks from Anki' }} />
       </Stack>
     </ThemeProvider>
   );

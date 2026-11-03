@@ -1,14 +1,18 @@
 """The HTTP endpoints. They only translate between JSON and the services."""
 
+import shutil
+import tempfile
+from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api import schemas
 from app.api.deps import get_now, get_session
-from app.services import notes, queue, reviews, topics
+from app.services import anki_import, notes, queue, reviews, topics
 from app.services.errors import InvalidInputError, NotFoundError
 
 router = APIRouter(prefix="/api/v1")
@@ -59,6 +63,20 @@ def list_cards(topic_id: int, session: SessionDep):
                             status=c.review_state.status, due_at=c.review_state.due_at)
         for c in cards
     ]
+
+
+@router.post("/import/anki", response_model=schemas.AnkiImportResult)
+def import_anki_deck(file: UploadFile, session: SessionDep):
+    """Import an Anki deck (.apkg) or collection (.colpkg) uploaded as a file."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "upload.apkg"
+        with path.open("wb") as target:
+            shutil.copyfileobj(file.file, target)
+        try:
+            report = anki_import.import_anki(session, path)
+        except InvalidInputError as error:
+            raise _http_error(error)
+    return schemas.AnkiImportResult(**asdict(report))
 
 
 @router.get("/note-types", response_model=list[schemas.NoteTypeOut])

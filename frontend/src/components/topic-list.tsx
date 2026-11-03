@@ -4,10 +4,15 @@ import { View } from 'react-native';
 
 import { Button, Input, Label, Row, SectionTitle } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { showMenu } from '@/lib/confirm';
+import { confirmAndDeleteTopic } from '@/lib/delete-topic';
 import type { TopicWithTotals } from '@/lib/topics';
 import { api, ApiError } from '@/services/api';
 
-/** The subtopics of one topic (or the top-level topics), plus a field to add a new one. */
+/**
+ * The subtopics of one topic (or the top-level topics), plus a field to add a new one.
+ * Tap a topic to open it; long-press it for a menu (delete).
+ */
 export function TopicList({
   topics,
   parentId,
@@ -20,6 +25,17 @@ export function TopicList({
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const children = topics.filter((t) => t.parent_id === parentId);
+
+  // Long-pressing a topic opens a small menu of actions (for now only Delete)
+  const openMenu = async (topic: TopicWithTotals) => {
+    const choice = await showMenu(topic.name, [{ label: 'Delete', destructive: true }]);
+    if (choice !== 0) return;
+    try {
+      if (await confirmAndDeleteTopic(topic, topics)) onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    }
+  };
 
   const addTopic = async () => {
     try {
@@ -41,6 +57,7 @@ export function TopicList({
           title={topic.name}
           detail={topic.total_due ? `${topic.total_due} due · ${topic.total_cards}` : String(topic.total_cards)}
           onPress={() => router.push({ pathname: '/topic/[id]', params: { id: String(topic.id) } })}
+          onLongPress={() => openMenu(topic)}
         />
       ))}
       <View style={{ flexDirection: 'row', gap: Spacing.two }}>

@@ -42,11 +42,23 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{children}</Text>;
 }
 
-export function Row({ title, detail, onPress }: { title: string; detail?: string; onPress?: () => void }) {
+export function Row({
+  title,
+  detail,
+  onPress,
+  onLongPress,
+}: {
+  title: string;
+  detail?: string;
+  onPress?: () => void;
+  /** Called when the row is held down for about half a second */
+  onLongPress?: () => void;
+}) {
   const colors = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: pressed ? colors.backgroundSelected : colors.backgroundElement },
@@ -64,21 +76,18 @@ export function Button({
   title,
   onPress,
   primary,
-  danger,
   disabled,
   subtitle,
 }: {
   title: string;
   onPress: () => void;
   primary?: boolean;
-  /** For destructive actions such as deleting: red text */
-  danger?: boolean;
   disabled?: boolean;
   subtitle?: string;
 }) {
   const colors = useTheme();
   const background = primary ? '#208AEF' : colors.backgroundElement;
-  const foreground = primary ? '#ffffff' : danger ? '#D93025' : colors.text;
+  const foreground = primary ? '#ffffff' : colors.text;
   return (
     <Pressable
       onPress={onPress}
